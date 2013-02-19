@@ -33,3 +33,6 @@ Desktop.ini
 # IntelliJ IDEA files
 *.iml
 .idea
+framework/libs/armeabi*
+framework/ndk
+framework/obj

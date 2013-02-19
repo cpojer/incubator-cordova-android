@@ -23,9 +23,12 @@ import android.media.MediaPlayer;
 import android.media.MediaPlayer.OnCompletionListener;
 import android.media.MediaPlayer.OnErrorListener;
 import android.media.MediaPlayer.OnPreparedListener;
-import android.media.MediaRecorder;
 import android.os.Environment;
 import android.util.Log;
+
+import fm.audioboo.application.FLACRecorder;
+import android.os.Handler;
+import android.os.Message;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -77,12 +80,18 @@ public class AudioPlayer implements OnCompletionListener, OnPreparedListener, On
     private String audioFile = null;        // File name to play or record to
     private float duration = -1;            // Duration of audio
 
-    private MediaRecorder recorder = null;  // Audio recording object
+    private FLACRecorder recorder = null;  // Audio recording object
     private String tempFile = null;         // Temporary recording file name
 
     private MediaPlayer player = null;      // Audio player object
     private boolean prepareOnly = true;     // playback after file prepare flag
     private int seekOnPrepared = 0;     // seek to this location once media is prepared
+
+    private Handler mInternalHandler;
+    private Handler mUpchainHandler;
+    private FLACRecorder.Amplitudes mAmplitudes;
+    private FLACRecorder.Amplitudes mLastAmplitudes;
+    public static final int MSG_END_OF_RECORDING  = FLACRecorder.MSG_AMPLITUDES + 1;
 
     /**
      * Constructor.
@@ -94,7 +103,40 @@ public class AudioPlayer implements OnCompletionListener, OnPreparedListener, On
         this.handler = handler;
         this.id = id;
         this.audioFile = file;
-        this.recorder = new MediaRecorder();
+
+        mInternalHandler = new Handler(new Handler.Callback() {
+          public boolean handleMessage(Message m) {
+            switch (m.what) {
+              case FLACRecorder.MSG_AMPLITUDES:
+                FLACRecorder.Amplitudes amp = (FLACRecorder.Amplitudes) m.obj;
+                // Create a copy of the amplitude in mLastAmplitudes; we'll use
+                // that when we restart recording to calculate the position
+                // within the Boo.
+                mLastAmplitudes = new FLACRecorder.Amplitudes(amp);
+                if (null != mAmplitudes)
+                  amp.mPosition += mAmplitudes.mPosition;
+                mUpchainHandler.obtainMessage(FLACRecorder.MSG_AMPLITUDES,
+                    amp).sendToTarget();
+                return true;
+              case MSG_END_OF_RECORDING:
+                // Update stats - at this point, mLastAmp should really be the last set
+                // of amplitudes we got from the recorder.
+                if (null == mAmplitudes)
+                  mAmplitudes = mLastAmplitudes;
+                else
+                  mAmplitudes.accumulate(mLastAmplitudes);
+                /*if (null != mRecorder && null != mLastAmplitudes) {
+                  mRecorder.mDuration = mLastAmplitudes.mPosition / 1000.0;
+                  mRecorder = null;
+                }*/
+                mUpchainHandler.obtainMessage(MSG_END_OF_RECORDING).sendToTarget();
+                return true;
+              default:
+                mUpchainHandler.obtainMessage(m.what, m.obj).sendToTarget();
+                return true;
+            }
+          }
+        });
 
         if (Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
             this.tempFile = Environment.getExternalStorageDirectory().getAbsolutePath() + "/tmprecording.3gp";
@@ -119,7 +161,6 @@ public class AudioPlayer implements OnCompletionListener, OnPreparedListener, On
         }
         if (this.recorder != null) {
             this.stopRecording();
-            this.recorder.release();
             this.recorder = null;
         }
     }
@@ -137,18 +178,13 @@ public class AudioPlayer implements OnCompletionListener, OnPreparedListener, On
             break;
         case NONE:
             this.audioFile = file;
-            this.recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-            this.recorder.setOutputFormat(MediaRecorder.OutputFormat.DEFAULT); // THREE_GPP);
-            this.recorder.setAudioEncoder(MediaRecorder.AudioEncoder.DEFAULT); //AMR_NB);
-            this.recorder.setOutputFile(this.tempFile);
+            this.recorder = new FLACRecorder(file, mInternalHandler);
             try {
-                this.recorder.prepare();
                 this.recorder.start();
+                this.recorder.resumeRecording();
                 this.setState(STATE.MEDIA_RUNNING);
                 return;
             } catch (IllegalStateException e) {
-                e.printStackTrace();
-            } catch (IOException e) {
                 e.printStackTrace();
             }
             this.handler.webView.sendJavascript("cordova.require('cordova/plugin/Media').onStatus('" + this.id + "', "+MEDIA_ERROR+", { \"code\":"+MEDIA_ERR_ABORTED+"});");
@@ -207,10 +243,15 @@ public class AudioPlayer implements OnCompletionListener, OnPreparedListener, On
         if (this.recorder != null) {
             try{
                 if (this.state == STATE.MEDIA_RUNNING) {
-                    this.recorder.stop();
+                    this.recorder.pauseRecording();
+                    this.recorder.mShouldRun = false;
+                    this.recorder.interrupt();
+                    try {
+                      this.recorder.join();
+                    } catch (InterruptedException ex) {}
                     this.setState(STATE.MEDIA_STOPPED);
                 }
-                this.recorder.reset();
+                this.recorder = null;
                 this.moveFile(this.audioFile);
             }
             catch (Exception e) {
