@@ -182,10 +182,13 @@ public class AudioPlayer implements OnCompletionListener, OnPreparedListener, On
             this.handler.webView.sendJavascript("cordova.require('cordova/plugin/Media').onStatus('" + this.id + "', "+MEDIA_ERROR+", { \"code\":"+MEDIA_ERR_ABORTED+"});");
             break;
         case NONE:
-            this.audioFile = Environment.getExternalStorageDirectory().getAbsolutePath() + "/" + file;
-            this.recorder = new FLACRecorder(this.audioFile, mInternalHandler);
-            try {
+            if (this.recorder == null) {
+                this.audioFile = Environment.getExternalStorageDirectory().getAbsolutePath() + "/" + file;
+                this.recorder = new FLACRecorder(this.audioFile, mInternalHandler);
                 this.recorder.start();
+            }
+
+            try {
                 this.recorder.resumeRecording();
                 this.setState(STATE.MEDIA_RUNNING);
                 return;
@@ -231,8 +234,7 @@ public class AudioPlayer implements OnCompletionListener, OnPreparedListener, On
                 if (this.state == STATE.MEDIA_RUNNING) {
                     this.handler.webView.sendJavascript("cordova.require('cordova/plugin/Media').onStatus('" + this.id + "', " + MEDIA_STATE + ", " + STATE.MEDIA_PAUSED.ordinal() + ");");
                     this.recorder.pauseRecording();
-                    this.recorder = null;
-                    this.setState(STATE.MEDIA_STOPPED);
+                    this.setState(STATE.MEDIA_PAUSED);
                 }
             }
             catch (Exception e) {
@@ -247,7 +249,7 @@ public class AudioPlayer implements OnCompletionListener, OnPreparedListener, On
     public void stopRecording() {
         if (this.recorder != null) {
             try{
-                if (this.state == STATE.MEDIA_RUNNING) {
+                if (this.state == STATE.MEDIA_RUNNING || this.state == STATE.MEDIA_PAUSED) {
                     this.recorder.pauseRecording();
                     this.recorder.mShouldRun = false;
                     this.recorder.interrupt();
