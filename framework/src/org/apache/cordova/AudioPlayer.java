@@ -63,6 +63,7 @@ public class AudioPlayer implements OnCompletionListener, OnPreparedListener, On
     private static int MEDIA_STATE = 1;
     private static int MEDIA_DURATION = 2;
     private static int MEDIA_POSITION = 3;
+    private static int MEDIA_LEVEL = 4;
     private static int MEDIA_ERROR = 9;
 
     // Media error codes
@@ -88,10 +89,9 @@ public class AudioPlayer implements OnCompletionListener, OnPreparedListener, On
     private int seekOnPrepared = 0;     // seek to this location once media is prepared
 
     private Handler mInternalHandler;
-    private Handler mUpchainHandler;
     private FLACRecorder.Amplitudes mAmplitudes;
     private FLACRecorder.Amplitudes mLastAmplitudes;
-    public static final int MSG_END_OF_RECORDING  = FLACRecorder.MSG_AMPLITUDES + 1;
+    public static final int MSG_END_OF_RECORDING = FLACRecorder.MSG_AMPLITUDES + 1;
 
     /**
      * Constructor.
@@ -104,19 +104,26 @@ public class AudioPlayer implements OnCompletionListener, OnPreparedListener, On
         this.id = id;
         this.audioFile = file;
 
+        // TODO work on this
+        final String xid = id;
+        final AudioHandler xhandler = handler;
         mInternalHandler = new Handler(new Handler.Callback() {
           public boolean handleMessage(Message m) {
             switch (m.what) {
               case FLACRecorder.MSG_AMPLITUDES:
-                FLACRecorder.Amplitudes amp = (FLACRecorder.Amplitudes) m.obj;
+                FLACRecorder.Amplitudes amp = (FLACRecorder.Amplitudes)m.obj;
                 // Create a copy of the amplitude in mLastAmplitudes; we'll use
                 // that when we restart recording to calculate the position
                 // within the Boo.
                 mLastAmplitudes = new FLACRecorder.Amplitudes(amp);
                 if (null != mAmplitudes)
                   amp.mPosition += mAmplitudes.mPosition;
-                mUpchainHandler.obtainMessage(FLACRecorder.MSG_AMPLITUDES,
-                    amp).sendToTarget();
+
+                // Convert to dB
+                double averagePower = 20 * Math.log10(amp.mAverage);
+                double peakPower = 20 * Math.log10(amp.mPeak);
+                xhandler.webView.sendJavascript("cordova.require('cordova/plugin/Media').onStatus('" + xid + "', " + MEDIA_LEVEL + ", " + averagePower + ", " + peakPower + ");");
+                //mUpchainHandler.obtainMessage(FLACRecorder.MSG_AMPLITUDES, amp).sendToTarget();
                 return true;
               case MSG_END_OF_RECORDING:
                 // Update stats - at this point, mLastAmp should really be the last set
@@ -129,10 +136,8 @@ public class AudioPlayer implements OnCompletionListener, OnPreparedListener, On
                   mRecorder.mDuration = mLastAmplitudes.mPosition / 1000.0;
                   mRecorder = null;
                 }*/
-                mUpchainHandler.obtainMessage(MSG_END_OF_RECORDING).sendToTarget();
                 return true;
               default:
-                mUpchainHandler.obtainMessage(m.what, m.obj).sendToTarget();
                 return true;
             }
           }
@@ -177,8 +182,8 @@ public class AudioPlayer implements OnCompletionListener, OnPreparedListener, On
             this.handler.webView.sendJavascript("cordova.require('cordova/plugin/Media').onStatus('" + this.id + "', "+MEDIA_ERROR+", { \"code\":"+MEDIA_ERR_ABORTED+"});");
             break;
         case NONE:
-            this.audioFile = file;
-            this.recorder = new FLACRecorder(file, mInternalHandler);
+            this.audioFile = Environment.getExternalStorageDirectory().getAbsolutePath() + "/" + file;
+            this.recorder = new FLACRecorder(this.audioFile, mInternalHandler);
             try {
                 this.recorder.start();
                 this.recorder.resumeRecording();

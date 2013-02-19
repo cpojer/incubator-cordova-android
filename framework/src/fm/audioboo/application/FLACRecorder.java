@@ -129,7 +129,6 @@ public class FLACRecorder extends Thread
   // Remember the duration of the recording. This is in msec.
   private double                  mDuration;
 
-
   /***************************************************************************
    * Implementation
    **/
@@ -141,28 +140,20 @@ public class FLACRecorder extends Thread
 
   }
 
-
-
   public void resumeRecording()
   {
     mShouldRecord = true;
   }
-
-
 
   public void pauseRecording()
   {
     mShouldRecord = false;
   }
 
-
-
   public boolean isRecording()
   {
     return mShouldRun && mShouldRecord;
   }
-
-
 
   public double getDuration()
   {
@@ -170,8 +161,6 @@ public class FLACRecorder extends Thread
     // so we'll need to convert.
     return mDuration / 1000;
   }
-
-
 
   public Amplitudes getAmplitudes()
   {
@@ -187,8 +176,6 @@ public class FLACRecorder extends Thread
     return amp;
   }
 
-
-
   public static int mapChannelConfig(int channelConfig)
   {
     switch (channelConfig) {
@@ -203,7 +190,6 @@ public class FLACRecorder extends Thread
     }
   }
 
-
   public static int mapFormat(int format)
   {
     switch (format) {
@@ -217,8 +203,6 @@ public class FLACRecorder extends Thread
         return 0;
     }
   }
-
-
 
   public void run()
   {
@@ -298,14 +282,12 @@ public class FLACRecorder extends Thread
 
       // Set up encoder. Create path for the file if it doesn't yet exist.
       Log.d(LTAG, "Setting up encoder " + mPath + " rate: " + sample_rate + " channels: " + mapped_channels + " format " + mapped_format);
-
       mEncoder = new FLACStreamEncoder(mPath, sample_rate, mapped_channels, mapped_format);
-      Log.d(LTAG, "encoder set up.");
+      Log.d(LTAG, "Encoder setup complete.");
       // Start recording loop
       mDuration = 0.0;
       ByteBuffer buffer = ByteBuffer.allocateDirect(bufsize);
       while (mShouldRun) {
-        Log.d(LTAG, "running");
         // Toggle recording state, if necessary
         if (mShouldRecord != oldShouldRecord) {
           // State changed! Let's see what we are supposed to do.
@@ -380,7 +362,5 @@ public class FLACRecorder extends Thread
 
     mHandler.obtainMessage(MSG_OK).sendToTarget();
   }
-
-
 
 }
