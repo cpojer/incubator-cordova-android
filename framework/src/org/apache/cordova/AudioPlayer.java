@@ -182,6 +182,25 @@ public class AudioPlayer implements OnCompletionListener, OnPreparedListener, On
     }
 
     /**
+     * Pause recording
+     */
+    public void pauseRecording() {
+        if (this.recorder != null) {
+            try{
+                if (this.state == STATE.MEDIA_RUNNING) {
+                    this.handler.webView.sendJavascript("cordova.require('cordova/plugin/Media').onStatus('" + this.id + "', " + MEDIA_STATE + ", " + STATE.MEDIA_PAUSED.ordinal() + ");");
+                    this.recorder.pauseRecording();
+                    this.recorder = null;
+                    this.setState(STATE.MEDIA_STOPPED);
+                }
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    /**
      * Stop recording and save to the file specified when recording started.
      */
     public void stopRecording() {
