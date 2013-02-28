@@ -1,12 +1,13 @@
 # Build both ARMv5TE and ARMv7-A machine code.
 APP_ABI := armeabi armeabi-v7a
 
-APP_MODULES = audioboo-ogg audioboo-flac audioboo-native
+APP_MODULES = audioboo-flac audioboo-native auphonic-sndfile
 APP_OPTIM = release
 
 AUDIOBOO_NATIVE_FLAGS = \
 	-Ijni/config \
 	-Ijni/ogg/include \
+    -Ijni/sndfile/src \
 	-DVERSION=\"1.2\" \
 	-Ijni/flac/include \
 	-Ijni/flac/src/libFLAC/include
