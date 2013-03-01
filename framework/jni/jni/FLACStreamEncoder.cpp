@@ -19,6 +19,7 @@
 
 #include "FLAC/metadata.h"
 #include "FLAC/stream_encoder.h"
+#include "sndfile.h"
 
 #include "util.h"
 
@@ -129,7 +130,8 @@ public:
     , m_sample_rate(sample_rate)
     , m_channels(channels)
     , m_bits_per_sample(bits_per_sample)
-    , m_encoder(NULL)
+    // , m_encoder(NULL)
+    , m_sfoutfile(NULL)
     , m_max_amplitude(0)
     , m_average_sum(0)
     , m_average_count(0)
@@ -153,30 +155,75 @@ public:
     }
 
 
-    // Try to create the encoder instance
-    m_encoder = FLAC__stream_encoder_new();
-    if (!m_encoder) {
-      return "Could not create FLAC__StreamEncoder!";
+    // // Try to create the encoder instance
+    // m_encoder = FLAC__stream_encoder_new();
+    // if (!m_encoder) {
+    //   return "Could not create FLAC__StreamEncoder!";
+    // }
+
+    // // dummy output file for FLAC encoder
+    // const char *outfile_dummy = "/storage/emulated/0/Auphonic/dummy-output.flac";
+
+    // // Try to initialize the encoder.
+    // FLAC__bool ok = true;
+    // ok &= FLAC__stream_encoder_set_sample_rate(m_encoder, 1.0f * m_sample_rate);
+    // ok &= FLAC__stream_encoder_set_channels(m_encoder, m_channels);
+    // ok &= FLAC__stream_encoder_set_bits_per_sample(m_encoder, m_bits_per_sample);
+    // ok &= FLAC__stream_encoder_set_verify(m_encoder, true);
+    // ok &= FLAC__stream_encoder_set_compression_level(m_encoder, COMPRESSION_LEVEL);
+    // if (!ok) {
+    //   return "Could not set up FLAC__StreamEncoder with the given parameters!";
+    // }
+
+    // // Try initializing the file stream.
+    // FLAC__StreamEncoderInitStatus init_status = FLAC__stream_encoder_init_file(
+    //     m_encoder,outfile_dummy, NULL, NULL);
+
+    // if (FLAC__STREAM_ENCODER_INIT_STATUS_OK != init_status) {
+    //   return "Could not initialize FLAC__StreamEncoder for the given file!";
+    // }
+
+
+    // set parameters for libsndfile
+    memset(&m_sfinfo, 0, sizeof(SF_INFO));
+    m_sfinfo.samplerate = m_sample_rate;
+    m_sfinfo.channels = m_channels;
+
+    // set audio file format
+    // TODO: this is hardcoded ATM!
+    // m_sfinfo.format = SF_FORMAT_WAV | SF_FORMAT_PCM_16;  // 16bit WAV
+    m_sfinfo.format = SF_FORMAT_OGG | SF_FORMAT_VORBIS;
+
+    // NOTE about vorbis:
+    // - see below for bitrate settings!
+
+    // NOTE about libsndfile and flac:
+    // - flac output format did not work
+    // - I guess we have to add the libflac to the build system?
+    // - or we have to set some additional flags, don't know ...
+
+    // check sndfile format
+    if(!sf_format_check(&m_sfinfo)) {
+        return "Invalid Audio Fileformat!";
     }
 
-    // Try to initialize the encoder.
-    FLAC__bool ok = true;
-    ok &= FLAC__stream_encoder_set_sample_rate(m_encoder, 1.0f * m_sample_rate);
-    ok &= FLAC__stream_encoder_set_channels(m_encoder, m_channels);
-    ok &= FLAC__stream_encoder_set_bits_per_sample(m_encoder, m_bits_per_sample);
-    ok &= FLAC__stream_encoder_set_verify(m_encoder, true);
-    ok &= FLAC__stream_encoder_set_compression_level(m_encoder, COMPRESSION_LEVEL);
-    if (!ok) {
-      return "Could not set up FLAC__StreamEncoder with the given parameters!";
+    m_sfoutfile = sf_open(m_outfile, SFM_WRITE, &m_sfinfo);
+    if (!m_sfoutfile) {
+        sf_close(m_sfoutfile);
+        return "Could not create audio outputfile with libsndfile!";
     }
 
-    // Try initializing the file stream.
-    FLAC__StreamEncoderInitStatus init_status = FLAC__stream_encoder_init_file(
-        m_encoder, m_outfile, NULL, NULL);
-
-    if (FLAC__STREAM_ENCODER_INIT_STATUS_OK != init_status) {
-      return "Could not initialize FLAC__StreamEncoder for the given file!";
-    }
+    // set vorbis encoding quality (bitrate):
+    // - quality should be between 0 and 1
+    // - quality 0.4 is the default value
+    // - no idea how this quality values corresponds to oggenc qualities/bitrates
+    // - some experiments (all mono):
+    //   0.8 = 140k
+    //   0.85 = 150k
+    //   0.9 = 160k
+    //   -> the bitrate seems to be fixed, so I don't know if this is VBR !?
+    double quality = 0.85;
+    sf_command(m_sfoutfile, SFC_SET_VBR_ENCODING_QUALITY, &quality, sizeof (quality)) ;
 
     // Allocate write buffer. Based on observations noted down in issue #106, we'll
     // choose this to be 32k in size. Actual allocation happens lazily.
@@ -227,11 +274,17 @@ public:
     pthread_cond_destroy(&m_writer_condition);
     pthread_mutex_destroy(&m_fifo_mutex);
 
-    // Clean up FLAC stuff
-    if (m_encoder) {
-      FLAC__stream_encoder_finish(m_encoder);
-      FLAC__stream_encoder_delete(m_encoder);
-      m_encoder = NULL;
+    // // Clean up FLAC stuff
+    // if (m_encoder) {
+    //   FLAC__stream_encoder_finish(m_encoder);
+    //   FLAC__stream_encoder_delete(m_encoder);
+    //   m_encoder = NULL;
+    // }
+
+    // Clean up libsndfile
+    if (m_sfoutfile) {
+        sf_close(m_sfoutfile);
+        m_sfoutfile = NULL;
     }
 
     if (m_outfile) {
@@ -326,6 +379,8 @@ public:
       pthread_cond_wait(&m_writer_condition, &m_fifo_mutex);
       //aj::log(ANDROID_LOG_DEBUG, LTAG, "Wakeup: should I die after this? %s", (m_kill_writer ? "yes" : "no"));
 
+      sf_count_t written = 0;
+
       // Grab ownership over the current FIFO, and release the lock again.
       write_fifo_t * fifo = (write_fifo_t *) m_fifo;
       while (fifo) {
@@ -339,13 +394,20 @@ public:
 
         write_fifo_t * current = fifo;
         while (current) {
-          //aj::log(ANDROID_LOG_DEBUG, LTAG, "Encoding current entry %p, buffer %p, size %d",
+          // aj::log(ANDROID_LOG_DEBUG, LTAG, "Encoding current entry %p, buffer %p, size %d",
           //    current, current->m_buffer, current->m_buffer_fill_size);
 
-          // Encode!
-          FLAC__bool ok = FLAC__stream_encoder_process_interleaved(m_encoder,
-              current->m_buffer, current->m_buffer_fill_size);
-          if (ok) {
+          // Encode with libsndfile
+          // TODO: auf float umstellen, siehe Kommentar weiter unten bei copyBuffer!
+          written = sf_writef_int(m_sfoutfile, current->m_buffer,
+                                  current->m_buffer_fill_size);
+
+          // // Encode FLAC!
+          // FLAC__bool ok = FLAC__stream_encoder_process_interleaved(m_encoder,
+          //     current->m_buffer, current->m_buffer_fill_size);
+
+          // if (ok) {
+          if (written == current->m_buffer_fill_size) {
             retry = 0;
           }
           else {
@@ -477,7 +539,14 @@ private:
       sized_sampleT cur = inbuf_sized[i];
 
       // Convert sized sample to int32
-      outbuf[i] = cur;
+      // HACK: for 16bit we have to multiply it with 2^16, because the input
+      // is 16bit and we store it here as 32bit, otherwise we will be
+      // much too quiet !!!!
+      // TODO: re-implement all this !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      // -> alles gleich mit floating point buffer machen
+      // -> libvorbis is dann eh sowieso in floating point and hier wird ja
+      //    auch auf floats konvertiert unten ...
+      outbuf[i] = cur * 65536;  // * 2^16
 
       // Convert to float on a range from 0..1
       if (cur < 0) {
@@ -524,8 +593,12 @@ private:
   int     m_channels;
   int     m_bits_per_sample;
 
+  // variables for libsndfile
+  SNDFILE *m_sfoutfile;
+  SF_INFO m_sfinfo;
+
   // FLAC encoder instance
-  FLAC__StreamEncoder * m_encoder;
+  // FLAC__StreamEncoder * m_encoder;
 
   // Max amplitude measured
   float   m_max_amplitude;

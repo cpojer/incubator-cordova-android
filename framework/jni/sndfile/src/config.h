@@ -1,3 +1,4 @@
+/* src/config.h.  Generated from config.h.in by configure.  */
 /* src/config.h.in.  Generated from configure.ac by autoheader.  */
 
 /* Set to 1 if the compile is GNU GCC. */
@@ -19,7 +20,7 @@
 #define ENABLE_EXPERIMENTAL_CODE 0
 
 /* Define to 1 if you have the <alsa/asoundlib.h> header file. */
-#define HAVE_ALSA_ASOUNDLIB_H 0
+/* #undef HAVE_ALSA_ASOUNDLIB_H */
 
 /* Define to 1 if you have the <byteswap.h> header file. */
 #define HAVE_BYTESWAP_H 1
@@ -40,7 +41,7 @@
 #define HAVE_ENDIAN_H 1
 
 /* Will be set to 1 if flac, ogg and vorbis are available. */
-#define HAVE_EXTERNAL_LIBS 0
+#define HAVE_EXTERNAL_LIBS 1
 
 /* Set to 1 if the compile supports the struct hack. */
 #define HAVE_FLEXIBLE_ARRAY 1
@@ -58,13 +59,13 @@
 #define HAVE_FSTAT 1
 
 /* Define to 1 if you have the `fsync' function. */
-#define HAVE_FSYNC 0
+#define HAVE_FSYNC 1
 
 /* Define to 1 if you have the `ftruncate' function. */
 #define HAVE_FTRUNCATE 1
 
 /* Define to 1 if you have the `getpagesize' function. */
-#define HAVE_GETPAGESIZE 1
+/* #undef HAVE_GETPAGESIZE */
 
 /* Define to 1 if you have the `gettimeofday' function. */
 #define HAVE_GETTIMEOFDAY 1
@@ -91,10 +92,10 @@
 #define HAVE_LOCALTIME_R 1
 
 /* Define if you have C99's lrint function. */
-#define HAVE_LRINT 1
+/* #undef HAVE_LRINT */
 
 /* Define if you have C99's lrintf function. */
-#define HAVE_LRINTF 1
+/* #undef HAVE_LRINTF */
 
 /* Define to 1 if you have the `lseek' function. */
 #define HAVE_LSEEK 1
@@ -130,7 +131,7 @@
 #define HAVE_SETLOCALE 1
 
 /* Define to 1 if you have the <sndio.h> header file. */
-#define HAVE_SNDIO_H 0
+/* #undef HAVE_SNDIO_H */
 
 /* Define to 1 if you have the `snprintf' function. */
 #define HAVE_SNPRINTF 1
@@ -179,10 +180,10 @@
 
 /* Define to the sub-directory in which libtool stores uninstalled libraries.
    */
-#define LT_OBJDIR
+#define LT_OBJDIR ".libs/"
 
 /* Define to 1 if your C compiler doesn't accept -c and -o together. */
-#define NO_MINUS_C_MINUS_O 0
+/* #undef NO_MINUS_C_MINUS_O */
 
 /* Set to 1 if compiling for MacOSX */
 #define OS_IS_MACOSX 0
@@ -212,7 +213,7 @@
 #define PACKAGE_VERSION "1.0.25"
 
 /* Set to maximum allowed value of sf_count_t type. */
-#define SF_COUNT_MAX 0x7FFFFFFFFFFFFFFFLL
+#define SF_COUNT_MAX 0x7FFFFFFF
 
 /* The size of `double', as computed by sizeof. */
 #define SIZEOF_DOUBLE 8
@@ -227,7 +228,7 @@
 #define SIZEOF_INT64_T 8
 
 /* The size of `loff_t', as computed by sizeof. */
-#define SIZEOF_LOFF_T 
+#define SIZEOF_LOFF_T 8
 
 /* The size of `long', as computed by sizeof. */
 #define SIZEOF_LONG 4
@@ -242,7 +243,7 @@
 #define SIZEOF_OFF_T 4
 
 /* Set to sizeof (long) if unknown. */
-#define SIZEOF_SF_COUNT_T 8
+#define SIZEOF_SF_COUNT_T 4
 
 /* The size of `short', as computed by sizeof. */
 #define SIZEOF_SHORT 2
@@ -251,19 +252,19 @@
 #define SIZEOF_SIZE_T 4
 
 /* The size of `ssize_t', as computed by sizeof. */
-#define SIZEOF_SSIZE_T 8
+#define SIZEOF_SSIZE_T 4
 
 /* The size of `void*', as computed by sizeof. */
 #define SIZEOF_VOIDP 4
 
 /* The size of `wchar_t', as computed by sizeof. */
-#define SIZEOF_WCHAR_T 2
+#define SIZEOF_WCHAR_T 4
 
 /* Define to 1 if you have the ANSI C header files. */
 #define STDC_HEADERS 1
 
 /* Set to long if unknown. */
-#define TYPEOF_SF_COUNT_T int64_t
+#define TYPEOF_SF_COUNT_T off_t
 
 /* Set to 1 to use the native windows API */
 #define USE_WINDOWS_API 0
@@ -278,13 +279,13 @@
 #define WORDS_BIGENDIAN 0
 
 /* Number of bits in a file offset, on hosts where this is settable. */
-//#define _FILE_OFFSET_BITS
+#define _FILE_OFFSET_BITS 64
 
 /* Define to make fseeko etc. visible, on some hosts. */
-//#define _LARGEFILE_SOURCE
+#define _LARGEFILE_SOURCE 1
 
 /* Define for large files, on AIX-style hosts. */
-//#define _LARGE_FILES
+/* #undef _LARGE_FILES */
 
 /* Set to 1 to use C99 printf/snprintf in MinGW. */
-//#define __USE_MINGW_ANSI_STDIO
+/* #undef __USE_MINGW_ANSI_STDIO */

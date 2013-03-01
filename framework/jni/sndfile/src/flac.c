@@ -29,7 +29,8 @@
 #include	"sndfile.h"
 #include	"common.h"
 
-#if HAVE_EXTERNAL_LIBS
+//#if HAVE_EXTERNAL_LIBS
+#if NEVER
 
 #include	<FLAC/stream_decoder.h>
 #include	<FLAC/stream_encoder.h>
