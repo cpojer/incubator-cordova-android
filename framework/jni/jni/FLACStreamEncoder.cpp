@@ -17,17 +17,19 @@
 #include <pthread.h>
 #include <unistd.h>
 
+#include "sndfile.h"
+#include "util.h"
+
+#include <jni.h>
+
 
 // TODO: remove this !!!!!!!!!!!!!!!!!!!!!!
 #define FLAC__int32 int
 
-// #include "FLAC/metadata.h"
-// #include "FLAC/stream_encoder.h"
-#include "sndfile.h"
+// datatype for audio (32bit float)
+// TODO: change buffer to float!
+// #define audio_t float
 
-#include "util.h"
-
-#include <jni.h>
 
 namespace aj = audioboo::jni;
 
@@ -158,36 +160,6 @@ public:
       return "No file name given!";
     }
 
-
-    // // Try to create the encoder instance
-    // m_encoder = FLAC__stream_encoder_new();
-    // if (!m_encoder) {
-    //   return "Could not create FLAC__StreamEncoder!";
-    // }
-
-    // // dummy output file for FLAC encoder
-    // const char *outfile_dummy = "/storage/emulated/0/Auphonic/dummy-output.flac";
-
-    // // Try to initialize the encoder.
-    // FLAC__bool ok = true;
-    // ok &= FLAC__stream_encoder_set_sample_rate(m_encoder, 1.0f * m_sample_rate);
-    // ok &= FLAC__stream_encoder_set_channels(m_encoder, m_channels);
-    // ok &= FLAC__stream_encoder_set_bits_per_sample(m_encoder, m_bits_per_sample);
-    // ok &= FLAC__stream_encoder_set_verify(m_encoder, true);
-    // ok &= FLAC__stream_encoder_set_compression_level(m_encoder, COMPRESSION_LEVEL);
-    // if (!ok) {
-    //   return "Could not set up FLAC__StreamEncoder with the given parameters!";
-    // }
-
-    // // Try initializing the file stream.
-    // FLAC__StreamEncoderInitStatus init_status = FLAC__stream_encoder_init_file(
-    //     m_encoder,outfile_dummy, NULL, NULL);
-
-    // if (FLAC__STREAM_ENCODER_INIT_STATUS_OK != init_status) {
-    //   return "Could not initialize FLAC__StreamEncoder for the given file!";
-    // }
-
-
     // set parameters for libsndfile
     memset(&m_sfinfo, 0, sizeof(SF_INFO));
     m_sfinfo.samplerate = m_sample_rate;
@@ -277,13 +249,6 @@ public:
     pthread_join(m_writer, &retval);
     pthread_cond_destroy(&m_writer_condition);
     pthread_mutex_destroy(&m_fifo_mutex);
-
-    // // Clean up FLAC stuff
-    // if (m_encoder) {
-    //   FLAC__stream_encoder_finish(m_encoder);
-    //   FLAC__stream_encoder_delete(m_encoder);
-    //   m_encoder = NULL;
-    // }
 
     // Clean up libsndfile
     if (m_sfoutfile) {
@@ -406,11 +371,6 @@ public:
           written = sf_writef_int(m_sfoutfile, current->m_buffer,
                                   current->m_buffer_fill_size);
 
-          // // Encode FLAC!
-          // FLAC__bool ok = FLAC__stream_encoder_process_interleaved(m_encoder,
-          //     current->m_buffer, current->m_buffer_fill_size);
-
-          // if (ok) {
           if (written == current->m_buffer_fill_size) {
             retry = 0;
           }
@@ -600,9 +560,6 @@ private:
   // variables for libsndfile
   SNDFILE *m_sfoutfile;
   SF_INFO m_sfinfo;
-
-  // FLAC encoder instance
-  // FLAC__StreamEncoder * m_encoder;
 
   // Max amplitude measured
   float   m_max_amplitude;
