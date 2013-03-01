@@ -17,8 +17,12 @@
 #include <pthread.h>
 #include <unistd.h>
 
-#include "FLAC/metadata.h"
-#include "FLAC/stream_encoder.h"
+
+// TODO: remove this !!!!!!!!!!!!!!!!!!!!!!
+#define FLAC__int32 int
+
+// #include "FLAC/metadata.h"
+// #include "FLAC/stream_encoder.h"
 #include "sndfile.h"
 
 #include "util.h"
