@@ -16,6 +16,7 @@
 #include <limits.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <math.h>
 
 #include "sndfile.h"
 #include "util.h"
@@ -23,11 +24,8 @@
 #include <jni.h>
 
 
-// TODO: remove this !!!!!!!!!!!!!!!!!!!!!!
-#define FLAC__int32 int
-
-// datatype for audio samples (32bit float)
-// #define sample_t float
+// datatype for internal audio sample buffers (32bit float)
+#define sample_t float
 
 
 namespace aj = audioboo::jni;
@@ -77,7 +75,7 @@ public:
   // Write FIFO
   struct write_fifo_t
   {
-    write_fifo_t(FLAC__int32 * buf, int fillsize)
+    write_fifo_t(sample_t * buf, int fillsize)
       : m_next(NULL)
       , m_buffer(buf) // Taking ownership here.
       , m_buffer_fill_size(fillsize)
@@ -104,7 +102,7 @@ public:
 
 
     write_fifo_t *  m_next;
-    FLAC__int32 *   m_buffer;
+    sample_t *      m_buffer;
     int             m_buffer_fill_size;
   };
 
@@ -135,7 +133,6 @@ public:
     , m_sample_rate(sample_rate)
     , m_channels(channels)
     , m_bits_per_sample(bits_per_sample)
-    // , m_encoder(NULL)
     , m_sfoutfile(NULL)
     , m_max_amplitude(0)
     , m_average_sum(0)
@@ -283,12 +280,13 @@ public:
    **/
   int write(char * buffer, int bufsize)
   {
-    //aj::log(ANDROID_LOG_DEBUG, LTAG, "Asked to write buffer of size %d", bufsize);
+    // aj::log(ANDROID_LOG_DEBUG, LTAG, "Asked to write buffer of size %d", bufsize);
 
-    // We have 8 or 16 bit pcm in the buffer, but FLAC expects 32 bit samples,
-    // where some of the 32 bits are unused.
+    // We have 8 or 16 bit pcm in the buffer, but we store it as 32 bit floats
+    // NOTE: that's devided by 2 if we have 16bit, because we reinterpret the
+    // 8bit char buffer as 16bit signed integers!
     int bufsize32 = bufsize / (m_bits_per_sample / 8);
-    //aj::log(ANDROID_LOG_DEBUG, LTAG, "Required size: %d", bufsize32);
+    // aj::log(ANDROID_LOG_DEBUG, LTAG, "Required size: %d", bufsize32);
 
     // Protect from overly large buffers on the JNI side.
     if (bufsize32 > m_write_buffer_size) {
@@ -298,7 +296,7 @@ public:
       // FIFO entry that's as large as bufsize32.
       flush_to_fifo();
 
-      m_write_buffer = new FLAC__int32[bufsize32];
+      m_write_buffer = new sample_t[bufsize32];
       m_write_buffer_offset = 0;
 
       int ret = copyBuffer(buffer, bufsize, bufsize32);
@@ -323,8 +321,8 @@ public:
 
     // If we need to create a new buffer, do so now.
     if (!m_write_buffer) {
-      //aj::log(ANDROID_LOG_DEBUG, LTAG, "Need new buffer.");
-      m_write_buffer = new FLAC__int32[m_write_buffer_size];
+      // aj::log(ANDROID_LOG_DEBUG, LTAG, "Need new buffer.");
+      m_write_buffer = new sample_t[m_write_buffer_size];
       m_write_buffer_offset = 0;
     }
 
@@ -366,9 +364,8 @@ public:
           //    current, current->m_buffer, current->m_buffer_fill_size);
 
           // Encode with libsndfile
-          // TODO: auf float umstellen, siehe Kommentar weiter unten bei copyBuffer!
-          written = sf_writef_int(m_sfoutfile, current->m_buffer,
-                                  current->m_buffer_fill_size);
+          written = sf_writef_float(m_sfoutfile, current->m_buffer,
+                                    current->m_buffer_fill_size);
 
           if (written == current->m_buffer_fill_size) {
             retry = 0;
@@ -416,6 +413,7 @@ public:
   float getMaxAmplitude()
   {
     float result = m_max_amplitude;
+    // aj::log(ANDROID_LOG_DEBUG, LTAG, "Max Amplitude: %f", result);
     m_max_amplitude = 0;
     return result;
   }
@@ -425,6 +423,7 @@ public:
   float getAverageAmplitude()
   {
     float result = m_average_sum / m_average_count;
+    // aj::log(ANDROID_LOG_DEBUG, LTAG, "Average Amplitude: %f", result);
     m_average_sum = 0;
     m_average_count = 0;
     return result;
@@ -432,6 +431,7 @@ public:
 
 
 private:
+
   /**
    * Append current write buffer to FIFO, and clear it.
    **/
@@ -443,8 +443,7 @@ private:
 
     //aj::log(ANDROID_LOG_DEBUG, LTAG, "Flushing to FIFO.");
 
-    write_fifo_t * next = new write_fifo_t(m_write_buffer,
-        m_write_buffer_offset);
+    write_fifo_t * next = new write_fifo_t(m_write_buffer, m_write_buffer_offset);
     m_write_buffer = NULL;
 
     pthread_mutex_lock(&m_fifo_mutex);
@@ -467,7 +466,7 @@ private:
    **/
   inline int copyBuffer(char * buffer, int bufsize, int bufsize32)
   {
-    FLAC__int32 * buf = m_write_buffer + m_write_buffer_offset;
+    sample_t * buf = m_write_buffer + m_write_buffer_offset;
 
     //aj::log(ANDROID_LOG_DEBUG, LTAG, "Writing at %p[%d] = %p", m_write_buffer, m_write_buffer_offset, buf);
     if (8 == m_bits_per_sample) {
@@ -495,36 +494,25 @@ private:
    * modified.
    **/
   template <typename sized_sampleT>
-  void copyBuffer(FLAC__int32 * outbuf, char * inbuf, int inbufsize)
+  void copyBuffer(sample_t * outbuf, char * inbuf, int inbufsize)
   {
     sized_sampleT * inbuf_sized = reinterpret_cast<sized_sampleT *>(inbuf);
     for (int i = 0 ; i < inbufsize / sizeof(sized_sampleT) ; ++i) {
       sized_sampleT cur = inbuf_sized[i];
 
-      // Convert sized sample to int32
-      // HACK: for 16bit we have to multiply it with 2^16, because the input
-      // is 16bit and we store it here as 32bit, otherwise we will be
-      // much too quiet !!!!
-      // TODO: re-implement all this !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      // -> alles gleich mit floating point buffer machen
-      // -> libvorbis is dann eh sowieso in floating point and hier wird ja
-      //    auch auf floats konvertiert unten ...
-      outbuf[i] = cur * 65536;  // * 2^16
+      // Convert integer sample to float 32bit sample between -1 and 1
+      outbuf[i] = static_cast<sample_t>(cur) / aj::type_traits<sized_sampleT>::MAX;
 
-      // Convert to float on a range from 0..1
-      if (cur < 0) {
-        // Need to lose precision here, the positive value range is lower than
-        // the negative value range in a signed integer.
-        cur = -(cur + 1);
-      }
-      float amp = static_cast<float>(cur) / aj::type_traits<sized_sampleT>::MAX;
+      // calc absolute amplitude
+      float amp = fabs(outbuf[i]);
 
-      // Store max amplitude
+      // Store max absolute amplitude
       if (amp > m_max_amplitude) {
         m_max_amplitude = amp;
       }
 
-      // Sum average.
+      // Sum average
+      // NOTE: maybe it's better to calc the RMS value instead of the mean?
       if (!(i % m_channels)) {
         m_average_sum += amp;
         ++m_average_count;
@@ -549,7 +537,6 @@ private:
 
 
 
-
   // Configuration values passed to ctor
   char *  m_outfile;
   int     m_sample_rate;
@@ -566,7 +553,7 @@ private:
   int     m_average_count;
 
   // JNI thread's buffer.
-  FLAC__int32 * m_write_buffer;
+  sample_t *    m_write_buffer;
   int           m_write_buffer_size;
   int           m_write_buffer_offset;
 
