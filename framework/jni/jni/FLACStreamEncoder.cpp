@@ -26,9 +26,8 @@
 // TODO: remove this !!!!!!!!!!!!!!!!!!!!!!
 #define FLAC__int32 int
 
-// datatype for audio (32bit float)
-// TODO: change buffer to float!
-// #define audio_t float
+// datatype for audio samples (32bit float)
+// #define sample_t float
 
 
 namespace aj = audioboo::jni;
