@@ -59,6 +59,20 @@ LOCAL_SRC_FILES := $(SF_SRC)/mat5.c $(SF_SRC)/windows.c \
 include $(BUILD_STATIC_LIBRARY)
 
 
+# Build limiter statically
+#
+
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := auphonic-limiter
+
+LIMITER_SRC := limiter
+LOCAL_SRC_FILES := $(LIMITER_SRC)/bessel.c $(LIMITER_SRC)/window.c \
+    $(LIMITER_SRC)/limit.c
+
+include $(BUILD_STATIC_LIBRARY)
+
+
 # Lastly build the JNI wrapper and link both other libs against it
 #
 include $(CLEAR_VARS)
@@ -69,6 +83,6 @@ LOCAL_SRC_FILES := \
 	jni/util.cpp
 LOCAL_LDLIBS := -llog
 
-LOCAL_STATIC_LIBRARIES := auphonic-sndfile
+LOCAL_STATIC_LIBRARIES := auphonic-sndfile auphonic-limiter
 
 include $(BUILD_SHARED_LIBRARY)

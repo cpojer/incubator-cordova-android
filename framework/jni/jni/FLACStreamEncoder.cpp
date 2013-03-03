@@ -497,6 +497,8 @@ private:
   void copyBuffer(sample_t * outbuf, char * inbuf, int inbufsize)
   {
     sized_sampleT * inbuf_sized = reinterpret_cast<sized_sampleT *>(inbuf);
+    float amp = 0;
+
     for (int i = 0 ; i < inbufsize / sizeof(sized_sampleT) ; ++i) {
       sized_sampleT cur = inbuf_sized[i];
 
@@ -504,7 +506,7 @@ private:
       outbuf[i] = static_cast<sample_t>(cur) / aj::type_traits<sized_sampleT>::MAX;
 
       // calc absolute amplitude
-      float amp = fabs(outbuf[i]);
+      amp = fabs(outbuf[i]);
 
       // Store max absolute amplitude
       if (amp > m_max_amplitude) {
