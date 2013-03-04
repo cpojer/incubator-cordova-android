@@ -245,8 +245,8 @@ public class FLACRecorder extends Thread
 
           try {
             // Set up recorder
-            recorder = new AudioRecord(MediaRecorder.AudioSource.MIC, sample_rate,
-                channel_config, format, bufsize);
+            recorder = new AudioRecord(MediaRecorder.AudioSource.MIC,
+                sample_rate, channel_config, format, bufsize);
       int istate = recorder.getState();
       if (istate != AudioRecord.STATE_INITIALIZED) // it lied to us
         continue;

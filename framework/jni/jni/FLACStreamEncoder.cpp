@@ -42,8 +42,6 @@ static char const * const IllegalArgumentException_classname  = "java.lang.Illeg
 
 static char const * const LTAG                          = "FLACStreamEncoder/native";
 
-static int COMPRESSION_LEVEL                            = 5;
-
 
 
 /*****************************************************************************

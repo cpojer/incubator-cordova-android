@@ -5,6 +5,10 @@
 # NOTE: change this as needed!
 AUPHONIC_MOBILE_DIR=../../auphonic-mobile
 
+echo "\Build java code ...\n"
+android update project -p . -t android-17
+ant jar
+
 echo "\nBuild native code ...\n"
 
 # build C code
