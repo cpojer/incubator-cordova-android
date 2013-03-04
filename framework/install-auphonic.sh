@@ -1,9 +1,8 @@
 #!/bin/sh
 #
-# cordova and audioboo recorder install script for auphonic-mobile
+# cordova and auphonic recorder install script for auphonic-mobile
 
-# NOTE: change this as needed!
-AUPHONIC_MOBILE_DIR=../../auphonic-mobile
+AUPHONIC_MOBILE_DIR=$(cat auphonic.path)
 
 echo "\Build java code ...\n"
 android update project -p . -t android-17

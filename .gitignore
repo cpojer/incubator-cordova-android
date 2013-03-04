@@ -36,3 +36,4 @@ Desktop.ini
 framework/libs/armeabi*
 framework/ndk
 framework/obj
+framework/auphonic.path
