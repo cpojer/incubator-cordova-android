@@ -63,9 +63,9 @@ include $(BUILD_STATIC_LIBRARY)
 #
 include $(CLEAR_VARS)
 
-LOCAL_MODULE    := audioboo-native
+LOCAL_MODULE    := auphonic-recorder
 LOCAL_SRC_FILES := \
-	jni/FLACStreamEncoder.cpp \
+	jni/SndfileEncoder.cpp \
 	jni/util.cpp
 LOCAL_LDLIBS := -llog
 

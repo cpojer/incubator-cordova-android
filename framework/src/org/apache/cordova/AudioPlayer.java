@@ -26,7 +26,7 @@ import android.media.MediaPlayer.OnPreparedListener;
 import android.os.Environment;
 import android.util.Log;
 
-import fm.audioboo.application.FLACRecorder;
+import com.auphonic.application.SndfileRecorder;
 import android.os.Handler;
 import android.os.Message;
 
@@ -81,7 +81,7 @@ public class AudioPlayer implements OnCompletionListener, OnPreparedListener, On
     private String audioFile = null;        // File name to play or record to
     private float duration = -1;            // Duration of audio
 
-    private FLACRecorder recorder = null;  // Audio recording object
+    private SndfileRecorder recorder = null;  // Audio recording object
     private String tempFile = null;         // Temporary recording file name
 
     private MediaPlayer player = null;      // Audio player object
@@ -89,9 +89,9 @@ public class AudioPlayer implements OnCompletionListener, OnPreparedListener, On
     private int seekOnPrepared = 0;     // seek to this location once media is prepared
 
     private Handler mInternalHandler;
-    private FLACRecorder.Amplitudes mAmplitudes;
-    private FLACRecorder.Amplitudes mLastAmplitudes;
-    public static final int MSG_END_OF_RECORDING = FLACRecorder.MSG_AMPLITUDES + 1;
+    private SndfileRecorder.Amplitudes mAmplitudes;
+    private SndfileRecorder.Amplitudes mLastAmplitudes;
+    public static final int MSG_END_OF_RECORDING = SndfileRecorder.MSG_AMPLITUDES + 1;
 
     /**
      * Constructor.
@@ -110,12 +110,12 @@ public class AudioPlayer implements OnCompletionListener, OnPreparedListener, On
         mInternalHandler = new Handler(new Handler.Callback() {
           public boolean handleMessage(Message m) {
             switch (m.what) {
-              case FLACRecorder.MSG_AMPLITUDES:
-                FLACRecorder.Amplitudes amp = (FLACRecorder.Amplitudes)m.obj;
+              case SndfileRecorder.MSG_AMPLITUDES:
+                SndfileRecorder.Amplitudes amp = (SndfileRecorder.Amplitudes)m.obj;
                 // Create a copy of the amplitude in mLastAmplitudes; we'll use
                 // that when we restart recording to calculate the position
                 // within the Boo.
-                mLastAmplitudes = new FLACRecorder.Amplitudes(amp);
+                mLastAmplitudes = new SndfileRecorder.Amplitudes(amp);
                 if (null != mAmplitudes)
                   amp.mPosition += mAmplitudes.mPosition;
 
@@ -123,7 +123,7 @@ public class AudioPlayer implements OnCompletionListener, OnPreparedListener, On
                 double averagePower = 20 * Math.log10(amp.mAverage);
                 double peakPower = 20 * Math.log10(amp.mPeak);
                 xhandler.webView.sendJavascript("cordova.require('cordova/plugin/Media').onStatus('" + xid + "', " + MEDIA_LEVEL + ", " + averagePower + ", " + peakPower + ");");
-                //mUpchainHandler.obtainMessage(FLACRecorder.MSG_AMPLITUDES, amp).sendToTarget();
+                //mUpchainHandler.obtainMessage(SndfileRecorder.MSG_AMPLITUDES, amp).sendToTarget();
                 return true;
               case MSG_END_OF_RECORDING:
                 // Update stats - at this point, mLastAmp should really be the last set
@@ -184,7 +184,7 @@ public class AudioPlayer implements OnCompletionListener, OnPreparedListener, On
         case NONE:
             if (this.recorder == null) {
                 this.audioFile = Environment.getExternalStorageDirectory().getAbsolutePath() + "/" + file;
-                this.recorder = new FLACRecorder(this.audioFile, mInternalHandler);
+                this.recorder = new SndfileRecorder(this.audioFile, mInternalHandler);
                 this.recorder.start();
             }
 

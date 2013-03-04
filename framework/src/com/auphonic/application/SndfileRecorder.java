@@ -1,4 +1,13 @@
 /**
+ * Class to record audio and encode it with libsndfile.
+ * 2013, by Auphonic
+ *
+ * Author: Auphonic, Georg Holzmann <grh _at_ auphonic _dot_ com>
+ *
+ * Based on AudioBoo android recorder.
+ *
+ * Original comment:
+ *
  * This file is part of Audioboo, an android program for audio blogging.
  * Copyright (C) 2011 Audioboo Ltd. All rights reserved.
  *
@@ -7,7 +16,7 @@
  * $Id$
  **/
 
-package fm.audioboo.application;
+package com.auphonic.application;
 
 import android.content.Context;
 
@@ -17,7 +26,7 @@ import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
 
-import fm.audioboo.jni.FLACStreamEncoder;
+import com.auphonic.jni.SndfileEncoder;
 
 import java.nio.ByteBuffer;
 
@@ -29,10 +38,10 @@ import android.util.Log;
 
 
 /**
- * Records a single FLAC file from the microphone. Overwrites the file if it
- * already exists.
+ * Records a file from the microphone and encodes it with libsndfile.
+ * Overwrites the file if it already exists.
  **/
-public class FLACRecorder extends Thread
+public class SndfileRecorder extends Thread
 {
   /***************************************************************************
    * Public constants
@@ -51,11 +60,11 @@ public class FLACRecorder extends Thread
    * Private constants
    **/
   // Log ID
-  private static final String LTAG  = "FLACRecorder";
+  private static final String LTAG  = "SndfileRecorder";
 
 
   /***************************************************************************
-   * Simple class for reporting measured Amplitudes to user of FLACRecorder
+   * Simple class for reporting measured Amplitudes to user of SndfileRecorder
    **/
   public static class Amplitudes
   {
@@ -118,7 +127,7 @@ public class FLACRecorder extends Thread
   private boolean                 mShouldRecord = false;
 
   // Stream encoder
-  private FLACStreamEncoder       mEncoder;
+  private SndfileEncoder       mEncoder;
 
   // File path for the output file.
   private String                  mPath;
@@ -132,11 +141,11 @@ public class FLACRecorder extends Thread
   /***************************************************************************
    * Implementation
    **/
-  public FLACRecorder(String path, Handler handler)
+  public SndfileRecorder(String path, Handler handler)
   {
     mPath = path;
     mHandler = handler;
-    Log.d(LTAG, "New FLACRecorder, path: " + mPath);
+    Log.d(LTAG, "New SndfileRecorder, path: " + mPath);
 
   }
 
@@ -245,8 +254,11 @@ public class FLACRecorder extends Thread
 
           try {
             // Set up recorder
+            // TODO: let us select other sources too, not only MIC!
+            //       see http://developer.android.com/reference/android/media/MediaRecorder.AudioSource.html
             recorder = new AudioRecord(MediaRecorder.AudioSource.MIC,
                 sample_rate, channel_config, format, bufsize);
+
       int istate = recorder.getState();
       if (istate != AudioRecord.STATE_INITIALIZED) // it lied to us
         continue;
@@ -283,7 +295,7 @@ public class FLACRecorder extends Thread
 
       // Set up encoder. Create path for the file if it doesn't yet exist.
       Log.d(LTAG, "Setting up encoder " + mPath + " rate: " + sample_rate + " channels: " + mapped_channels + " format " + mapped_format);
-      mEncoder = new FLACStreamEncoder(mPath, sample_rate, mapped_channels, mapped_format);
+      mEncoder = new SndfileEncoder(mPath, sample_rate, mapped_channels, mapped_format);
       Log.d(LTAG, "Encoder setup complete.");
       // Start recording loop
       mDuration = 0.0;

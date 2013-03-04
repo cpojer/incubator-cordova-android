@@ -1,4 +1,13 @@
 /**
+ * Class to encode raw audio data with libsndfile.
+ * 2013, by Auphonic
+ *
+ * Author: Auphonic, Georg Holzmann <grh _at_ auphonic _dot_ com>
+ *
+ * Based on AudioBoo android recorder.
+ *
+ * Original comment:
+ *
  * This file is part of AudioBoo, an android program for audio blogging.
  * Copyright (C) 2011 Audioboo Ltd. All rights reserved.
  *
@@ -35,24 +44,24 @@ namespace {
 /*****************************************************************************
  * Constants
  **/
-static char const * const FLACStreamEncoder_classname   = "fm.audioboo.jni.FLACStreamEncoder";
-static char const * const FLACStreamEncoder_mObject     = "mObject";
+static char const * const SndfileEncoder_classname   = "com.auphonic.jni.SndfileEncoder";
+static char const * const SndfileEncoder_mObject     = "mObject";
 
 static char const * const IllegalArgumentException_classname  = "java.lang.IllegalArgumentException";
 
-static char const * const LTAG                          = "FLACStreamEncoder/native";
+static char const * const LTAG                          = "SndfileEncoder/native";
 
 
 
 /*****************************************************************************
- * Native FLACStreamEncoder representation
+ * Native SndfileEncoder representation
  *
- * FLACStreamEncoder uses a writer thread to write its internal buffer. The
+ * SndfileEncoder uses a writer thread to write its internal buffer. The
  * implementation is deliberately simple, and writing functions like this:
  *
  * 1. There's a thread on which Java makes JNI calls to write some data, the
  *    JNI thread.
- *    There's also a thread on which data is written to disk via FLAC, the
+ *    There's also a thread on which data is written to disk via sndfile, the
  *    writer thread.
  * 2. Data is passed from the JNI thread to the writer thread via a locked
  *    singly linked list of buffers; the JNI thread appends buffers to the
@@ -67,7 +76,7 @@ static char const * const LTAG                          = "FLACStreamEncoder/nat
  *    c) the writer thread is woken.
  **/
 
-class FLACStreamEncoder
+class SndfileEncoder
 {
 public:
   // Write FIFO
@@ -107,13 +116,13 @@ public:
   // Thread trampoline arguments
   struct trampoline
   {
-    typedef void * (FLACStreamEncoder::* func_t)(void * args);
+    typedef void * (SndfileEncoder::* func_t)(void * args);
 
-    FLACStreamEncoder * m_encoder;
+    SndfileEncoder * m_encoder;
     func_t              m_func;
     void *              m_args;
 
-    trampoline(FLACStreamEncoder * encoder, func_t func, void * args)
+    trampoline(SndfileEncoder * encoder, func_t func, void * args)
       : m_encoder(encoder)
       , m_func(func)
       , m_args(args)
@@ -125,7 +134,7 @@ public:
   /**
    * Takes ownership of the outfile.
    **/
-  FLACStreamEncoder(char * outfile, int sample_rate, int channels,
+  SndfileEncoder(char * outfile, int sample_rate, int channels,
       int bits_per_sample)
     : m_outfile(outfile)
     , m_sample_rate(sample_rate)
@@ -160,7 +169,7 @@ public:
     m_sfinfo.channels = m_channels;
 
     // set audio file format
-    // TODO: this is hardcoded ATM!
+    // TODO: this is hardcoded to vorbis ATM!
     // m_sfinfo.format = SF_FORMAT_WAV | SF_FORMAT_PCM_16;  // 16bit WAV
     m_sfinfo.format = SF_FORMAT_OGG | SF_FORMAT_VORBIS;
 
@@ -192,6 +201,7 @@ public:
     //   0.85 = 150k
     //   0.9 = 160k
     //   -> the bitrate seems to be fixed, so I don't know if this is VBR !?
+    // TODO: don't hardcode this !!!
     double quality = 0.85;
     sf_command(m_sfoutfile, SFC_SET_VBR_ENCODING_QUALITY, &quality, sizeof (quality)) ;
 
@@ -213,8 +223,8 @@ public:
     }
 
     // Start thread!
-    err = pthread_create(&m_writer, NULL, &FLACStreamEncoder::trampoline_func,
-        new trampoline(this, &FLACStreamEncoder::writer_thread, NULL));
+    err = pthread_create(&m_writer, NULL, &SndfileEncoder::trampoline_func,
+        new trampoline(this, &SndfileEncoder::writer_thread, NULL));
     if (err) {
       return "Could not start writer thread!";
     }
@@ -227,7 +237,7 @@ public:
   /**
    * Destroys encoder instance, releases outfile
    **/
-  ~FLACStreamEncoder()
+  ~SndfileEncoder()
   {
     // Flush thread.
     flush_to_fifo();
@@ -525,7 +535,7 @@ private:
   static void * trampoline_func(void * args)
   {
     trampoline * tramp = static_cast<trampoline *>(args);
-    FLACStreamEncoder * encoder = tramp->m_encoder;
+    SndfileEncoder * encoder = tramp->m_encoder;
     trampoline::func_t func = tramp->m_func;
 
     void * result = (encoder->*func)(tramp->m_args);
@@ -575,34 +585,34 @@ private:
  **/
 
 /**
- * Retrieve FLACStreamEncoder instance from the passed jobject.
+ * Retrieve SndfileEncoder instance from the passed jobject.
  **/
-static FLACStreamEncoder * get_encoder(JNIEnv * env, jobject obj)
+static SndfileEncoder * get_encoder(JNIEnv * env, jobject obj)
 {
-  assert(sizeof(jlong) >= sizeof(FLACStreamEncoder *));
+  assert(sizeof(jlong) >= sizeof(SndfileEncoder *));
 
   // Do the JNI dance for getting the mObject field
-  jclass cls = env->FindClass(FLACStreamEncoder_classname);
-  jfieldID object_field = env->GetFieldID(cls, FLACStreamEncoder_mObject, "J");
+  jclass cls = env->FindClass(SndfileEncoder_classname);
+  jfieldID object_field = env->GetFieldID(cls, SndfileEncoder_mObject, "J");
   jlong encoder_value = env->GetLongField(obj, object_field);
 
   env->DeleteLocalRef(cls);
 
-  return reinterpret_cast<FLACStreamEncoder *>(encoder_value);
+  return reinterpret_cast<SndfileEncoder *>(encoder_value);
 }
 
 
 /**
- * Store FLACStreamEncoder instance in the passed jobject.
+ * Store SndfileEncoder instance in the passed jobject.
  **/
-static void set_encoder(JNIEnv * env, jobject obj, FLACStreamEncoder * encoder)
+static void set_encoder(JNIEnv * env, jobject obj, SndfileEncoder * encoder)
 {
-  assert(sizeof(jlong) >= sizeof(FLACStreamEncoder *));
+  assert(sizeof(jlong) >= sizeof(SndfileEncoder *));
 
   // Do the JNI dance for setting the mObject field
   jlong encoder_value = reinterpret_cast<jlong>(encoder);
-  jclass cls = env->FindClass(FLACStreamEncoder_classname);
-  jfieldID object_field = env->GetFieldID(cls, FLACStreamEncoder_mObject, "J");
+  jclass cls = env->FindClass(SndfileEncoder_classname);
+  jfieldID object_field = env->GetFieldID(cls, SndfileEncoder_mObject, "J");
   env->SetLongField(obj, object_field, encoder_value);
   env->DeleteLocalRef(cls);
 }
@@ -619,12 +629,12 @@ static void set_encoder(JNIEnv * env, jobject obj, FLACStreamEncoder * encoder)
 extern "C" {
 
 void
-Java_fm_audioboo_jni_FLACStreamEncoder_init(JNIEnv * env, jobject obj,
+Java_com_auphonic_jni_SndfileEncoder_init(JNIEnv * env, jobject obj,
     jstring outfile, jint sample_rate, jint channels, jint bits_per_sample)
 {
-  assert(sizeof(jlong) >= sizeof(FLACStreamEncoder *));
+  assert(sizeof(jlong) >= sizeof(SndfileEncoder *));
 
-  FLACStreamEncoder * encoder = new FLACStreamEncoder(
+  SndfileEncoder * encoder = new SndfileEncoder(
       aj::convert_jstring_path(env, outfile), sample_rate, channels,
       bits_per_sample);
 
@@ -642,9 +652,9 @@ Java_fm_audioboo_jni_FLACStreamEncoder_init(JNIEnv * env, jobject obj,
 
 
 void
-Java_fm_audioboo_jni_FLACStreamEncoder_deinit(JNIEnv * env, jobject obj)
+Java_com_auphonic_jni_SndfileEncoder_deinit(JNIEnv * env, jobject obj)
 {
-  FLACStreamEncoder * encoder = get_encoder(env, obj);
+  SndfileEncoder * encoder = get_encoder(env, obj);
   delete encoder;
   set_encoder(env, obj, NULL);
 }
@@ -652,10 +662,10 @@ Java_fm_audioboo_jni_FLACStreamEncoder_deinit(JNIEnv * env, jobject obj)
 
 
 jint
-Java_fm_audioboo_jni_FLACStreamEncoder_write(JNIEnv * env, jobject obj,
+Java_com_auphonic_jni_SndfileEncoder_write(JNIEnv * env, jobject obj,
     jobject buffer, jint bufsize)
 {
-  FLACStreamEncoder * encoder = get_encoder(env, obj);
+  SndfileEncoder * encoder = get_encoder(env, obj);
 
   if (NULL == encoder) {
     aj::throwByName(env, IllegalArgumentException_classname,
@@ -675,9 +685,9 @@ Java_fm_audioboo_jni_FLACStreamEncoder_write(JNIEnv * env, jobject obj,
 
 
 void
-Java_fm_audioboo_jni_FLACStreamEncoder_flush(JNIEnv * env, jobject obj)
+Java_com_auphonic_jni_SndfileEncoder_flush(JNIEnv * env, jobject obj)
 {
-  FLACStreamEncoder * encoder = get_encoder(env, obj);
+  SndfileEncoder * encoder = get_encoder(env, obj);
 
   if (NULL == encoder) {
     aj::throwByName(env, IllegalArgumentException_classname,
@@ -691,9 +701,9 @@ Java_fm_audioboo_jni_FLACStreamEncoder_flush(JNIEnv * env, jobject obj)
 
 
 jfloat
-Java_fm_audioboo_jni_FLACStreamEncoder_getMaxAmplitude(JNIEnv * env, jobject obj)
+Java_com_auphonic_jni_SndfileEncoder_getMaxAmplitude(JNIEnv * env, jobject obj)
 {
-  FLACStreamEncoder * encoder = get_encoder(env, obj);
+  SndfileEncoder * encoder = get_encoder(env, obj);
 
   if (NULL == encoder) {
     aj::throwByName(env, IllegalArgumentException_classname,
@@ -707,9 +717,9 @@ Java_fm_audioboo_jni_FLACStreamEncoder_getMaxAmplitude(JNIEnv * env, jobject obj
 
 
 jfloat
-Java_fm_audioboo_jni_FLACStreamEncoder_getAverageAmplitude(JNIEnv * env, jobject obj)
+Java_com_auphonic_jni_SndfileEncoder_getAverageAmplitude(JNIEnv * env, jobject obj)
 {
-  FLACStreamEncoder * encoder = get_encoder(env, obj);
+  SndfileEncoder * encoder = get_encoder(env, obj);
 
   if (NULL == encoder) {
     aj::throwByName(env, IllegalArgumentException_classname,

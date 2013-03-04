@@ -1,4 +1,13 @@
 /**
+ * Class to encode raw audio data with libsndfile.
+ * 2013, by Auphonic
+ *
+ * Author: Auphonic, Georg Holzmann <grh _at_ auphonic _dot_ com>
+ *
+ * Based on AudioBoo android recorder.
+ *
+ * Original comment:
+ *
  * This file is part of Audioboo, an android program for audio blogging.
  * Copyright (C) 2011 Audioboo Ltd. All rights reserved.
  *
@@ -7,16 +16,16 @@
  * $Id$
  **/
 
-package fm.audioboo.jni;
+package com.auphonic.jni;
 
 import java.nio.ByteBuffer;
 
 
 /**
- * This is *not* a full JNI wrapper for the FLAC codec, but merely exports
- * the minimum of functions necessary for the purposes of the Audioboo client.
+ * This is JNI wrapper for libsndfile.
+ * However, ATM the encoding is hardcoded to Ogg Vorbis.
  **/
-public class FLACStreamEncoder
+public class SndfileEncoder
 {
   /***************************************************************************
    * Interface
@@ -26,7 +35,7 @@ public class FLACStreamEncoder
    * channels must be either 1 (mono) or 2 (stereo)
    * bits_per_sample must be either 8 or 16
    **/
-  public FLACStreamEncoder(String outfile, int sample_rate, int channels,
+  public SndfileEncoder(String outfile, int sample_rate, int channels,
       int bits_per_sample)
   {
     init(outfile, sample_rate, channels, bits_per_sample);
@@ -105,6 +114,6 @@ public class FLACStreamEncoder
 
   // Load native library
   static {
-    System.loadLibrary("audioboo-native");
+    System.loadLibrary("auphonic-recorder");
   }
 }
